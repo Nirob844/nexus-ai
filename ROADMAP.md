@@ -10,8 +10,8 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Project Scaffolding & Infrastructure | Monorepo, Docker Compose, Postgres, Redis | ✅ Completed |
 | **Phase 2** | Database Schema & Multi-Tenancy Design | PostgreSQL, pgvector, Prisma ORM | ✅ Completed |
-| **Phase 3** | Core Backend, Authentication & RBAC | NestJS, JWT, Argon2, RBAC Guards | ⏳ Next Up |
-| **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ⏳ Pending |
+| **Phase 3** | Core Backend, Authentication & RBAC | NestJS, JWT, Argon2, RBAC Guards | ✅ Completed |
+| **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ⏳ Next Up |
 | **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/LlamaIndex | ⏳ Pending |
 | **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM (OpenAI/Anthropic/Gemini) | ⏳ Pending |
 | **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ⏳ Pending |
@@ -56,13 +56,13 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 3: Core Backend, Authentication & RBAC
 **Goal:** Build secure multi-tenant authentication, authorization, and tenant context resolution in NestJS.
-- [ ] NestJS modular architecture setup (Common, Config, Database, Auth, Tenants, Users).
-- [ ] User registration, login, email verification, and password reset flows.
-- [ ] JWT authentication strategy (short-lived access tokens, rotatable refresh tokens).
-- [ ] Tenant resolution middleware/guard (extracting tenant from subdomain or header `X-Tenant-ID`).
-- [ ] Role-Based Access Control (RBAC) decorators & guards (`@Roles()`, `@Permissions()`).
-- [ ] Organization creation and employee invitation/membership workflows.
-- [ ] OpenAPI / Swagger documentation integration.
+- [x] NestJS modular architecture setup (Common, Config, Database, Auth, Tenants, Users).
+- [x] User registration, login, email verification, and password reset flows.
+- [x] JWT authentication strategy (short-lived access tokens, rotatable refresh tokens).
+- [x] Tenant resolution middleware/guard (extracting tenant from subdomain or header `X-Tenant-ID`).
+- [x] Role-Based Access Control (RBAC) decorators & guards (`@Roles()`, `@Permissions()`).
+- [x] Organization creation and employee invitation/membership workflows.
+- [x] OpenAPI / Swagger documentation integration at `/docs`.
 
 ---
 

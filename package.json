@@ -4,6 +4,9 @@
   "description": "NEXUS AI - Multi-Tenant AI-Powered Business Operations & Customer Support SaaS",
   "private": true,
   "scripts": {
+    "api:build": "yarn --cwd apps/api build",
+    "api:dev": "yarn --cwd apps/api start:dev",
+    "api:start": "yarn --cwd apps/api start:prod",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
