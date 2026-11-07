@@ -4,9 +4,11 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './database/prisma.module';
+import { QueueModule } from './queue/queue.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { UsersModule } from './users/users.module';
+import { TicketsModule } from './tickets/tickets.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -18,9 +20,11 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
       envFilePath: ['.env', '../../.env'],
     }),
     PrismaModule,
+    QueueModule,
     AuthModule,
     OrganizationsModule,
     UsersModule,
+    TicketsModule,
   ],
   controllers: [AppController],
   providers: [

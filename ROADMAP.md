@@ -11,8 +11,8 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 | **Phase 1** | Project Scaffolding & Infrastructure | Monorepo, Docker Compose, Postgres, Redis | ✅ Completed |
 | **Phase 2** | Database Schema & Multi-Tenancy Design | PostgreSQL, pgvector, Prisma ORM | ✅ Completed |
 | **Phase 3** | Core Backend, Authentication & RBAC | NestJS, JWT, Argon2, RBAC Guards | ✅ Completed |
-| **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ⏳ Next Up |
-| **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/LlamaIndex | ⏳ Pending |
+| **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ✅ Completed |
+| **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/LlamaIndex | ⏳ Next Up |
 | **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM (OpenAI/Anthropic/Gemini) | ⏳ Pending |
 | **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ⏳ Pending |
 | **Phase 8** | Real-Time Communication & Notifications | Socket.IO / WebSockets, Email Queue | ⏳ Pending |
@@ -68,11 +68,11 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 4: Customer Support Ticketing Engine
 **Goal:** Implement end-to-end support ticket lifecycle and asynchronous job queuing.
-- [ ] Customer ticket creation API (subject, description, category, priority, attachments).
-- [ ] Agent ticket workbench APIs (assign, reassign, status transitions, internal notes).
-- [ ] Ticket event logging & audit history.
-- [ ] BullMQ setup with Redis for asynchronous background processing.
-- [ ] Ticket state machine: `Open` -> `AI Processing` -> `In Progress` -> `Pending Customer` -> `Resolved` -> `Closed` -> `Reopened`.
+- [x] Customer ticket creation API (subject, description, category, priority, attachments).
+- [x] Agent ticket workbench APIs (assign, reassign, status transitions, internal notes).
+- [x] Ticket event logging & audit history (`ticket_events`).
+- [x] BullMQ setup with Redis for asynchronous background processing (`ticket-processing` queue).
+- [x] Ticket state machine: `Open` -> `AI Processing` -> `In Progress` -> `Pending Customer` -> `Resolved` -> `Closed` -> `Reopened`.
 
 ---
 
