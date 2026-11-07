@@ -1,0 +1,621 @@
+// ==============================================================================
+// NEXUS AI - Prisma Schema
+// Enterprise Multi-Tenant AI-Powered Business Operations & Customer Support SaaS
+// ==============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector"), uuid_ossp(map: "uuid-ossp")]
+}
+
+// ------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------
+
+enum SystemRole {
+  SUPER_ADMIN
+  ORG_OWNER
+  ORG_ADMIN
+  SUPPORT_AGENT
+  EMPLOYEE
+  CUSTOMER
+}
+
+enum TicketStatus {
+  OPEN
+  AI_PROCESSING
+  IN_PROGRESS
+  PENDING_CUSTOMER
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketMessageSenderType {
+  CUSTOMER
+  AGENT
+  AI
+  SYSTEM
+}
+
+enum SentimentScore {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  FRUSTRATED
+}
+
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+  EXPIRED
+}
+
+enum NotificationType {
+  TICKET_CREATED
+  TICKET_ASSIGNED
+  TICKET_STATUS_CHANGED
+  CUSTOMER_REPLIED
+  APPROVAL_REQUESTED
+  APPROVAL_RESOLVED
+  SYSTEM_ALERT
+}
+
+// ------------------------------------------------------------------------------
+// 1. ORGANIZATIONS (Multi-Tenancy Root)
+// ------------------------------------------------------------------------------
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(100)
+  domain      String?  @db.VarChar(255)
+  logoUrl     String?  @map("logo_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  members            OrganizationMember[]
+  roles              Role[]
+  customers          Customer[]
+  tickets            Ticket[]
+  knowledgeDocuments KnowledgeDocument[]
+  aiConversations    AiConversation[]
+  approvalRequests   ApprovalRequest[]
+  integrations       Integration[]
+  aiUsageLogs        AiUsageLog[]
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("organizations")
+}
+
+// ------------------------------------------------------------------------------
+// 2. USERS
+// ------------------------------------------------------------------------------
+model User {
+  id              String      @id @default(uuid()) @db.Uuid
+  email           String      @unique @db.VarChar(255)
+  passwordHash    String      @map("password_hash")
+  firstName       String      @map("first_name") @db.VarChar(100)
+  lastName        String      @map("last_name") @db.VarChar(100)
+  avatarUrl       String?     @map("avatar_url")
+  isSuperAdmin    Boolean     @default(false) @map("is_super_admin")
+  isEmailVerified Boolean     @default(false) @map("is_email_verified")
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  refreshTokens       RefreshToken[]
+  organizationMembers OrganizationMember[]
+  ticketMessages      TicketMessage[]
+  ticketAssignments   TicketAssignment[]
+  aiConversations     AiConversation[]
+  approvalsReviewed   ApprovalRequest[]     @relation("ReviewerApprovals")
+  approvalsRequested  ApprovalRequest[]     @relation("RequesterApprovals")
+  aiExecutions        AiExecution[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ------------------------------------------------------------------------------
+// 3. ORGANIZATION MEMBERS
+// ------------------------------------------------------------------------------
+model OrganizationMember {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  userId         String     @map("user_id") @db.Uuid
+  roleId         String?    @map("role_id") @db.Uuid
+  systemRole     SystemRole @default(EMPLOYEE) @map("system_role")
+  isActive       Boolean    @default(true) @map("is_active")
+  joinedAt       DateTime   @default(now()) @map("joined_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+// ------------------------------------------------------------------------------
+// 4. ROLES
+// ------------------------------------------------------------------------------
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(100)
+  description    String?  @db.VarChar(255)
+  isSystem       Boolean  @default(false) @map("is_system")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  RolePermission[]
+  members      OrganizationMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+// ------------------------------------------------------------------------------
+// 5. PERMISSIONS
+// ------------------------------------------------------------------------------
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  module      String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@index([key])
+  @@map("permissions")
+}
+
+// ------------------------------------------------------------------------------
+// 6. ROLE PERMISSIONS
+// ------------------------------------------------------------------------------
+model RolePermission {
+  id           String @id @default(uuid()) @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ------------------------------------------------------------------------------
+// 7. REFRESH TOKENS
+// ------------------------------------------------------------------------------
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  device    String?  @db.VarChar(255)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ------------------------------------------------------------------------------
+// 8. CUSTOMERS
+// ------------------------------------------------------------------------------
+model Customer {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  email          String   @db.VarChar(255)
+  name           String   @db.VarChar(255)
+  phoneNumber    String?  @map("phone_number") @db.VarChar(50)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tickets      Ticket[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@map("customers")
+}
+
+// ------------------------------------------------------------------------------
+// 9. TICKETS
+// ------------------------------------------------------------------------------
+model Ticket {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  customerId     String         @map("customer_id") @db.Uuid
+  ticketNumber   Int            @default(autoincrement()) @map("ticket_number")
+  subject        String         @db.VarChar(255)
+  description    String
+  category       String         @default("General") @db.VarChar(100)
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  resolvedAt     DateTime?      @map("resolved_at")
+  closedAt       DateTime?      @map("closed_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages     TicketMessage[]
+  attachments  TicketAttachment[]
+  assignments  TicketAssignment[]
+  events       TicketEvent[]
+  analyses     AiAnalysis[]
+  suggestions  AiSuggestion[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, customerId])
+  @@index([organizationId, priority])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+// ------------------------------------------------------------------------------
+// 10. TICKET MESSAGES
+// ------------------------------------------------------------------------------
+model TicketMessage {
+  id         String                  @id @default(uuid()) @db.Uuid
+  ticketId   String                  @map("ticket_id") @db.Uuid
+  senderType TicketMessageSenderType @map("sender_type")
+  senderId   String?                 @map("sender_id") @db.Uuid
+  content    String
+  isInternal Boolean                 @default(false) @map("is_internal")
+  createdAt  DateTime                @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+// ------------------------------------------------------------------------------
+// 11. TICKET ATTACHMENTS
+// ------------------------------------------------------------------------------
+model TicketAttachment {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  fileName  String   @map("file_name") @db.VarChar(255)
+  fileUrl   String   @map("file_url")
+  fileSize  Int      @map("file_size")
+  fileType  String   @map("file_type") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
+}
+
+// ------------------------------------------------------------------------------
+// 12. TICKET ASSIGNMENTS
+// ------------------------------------------------------------------------------
+model TicketAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  agentId    String   @map("agent_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  agent  User   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([agentId])
+  @@map("ticket_assignments")
+}
+
+// ------------------------------------------------------------------------------
+// 13. TICKET EVENTS (Audit Lifecycle)
+// ------------------------------------------------------------------------------
+model TicketEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  eventType String   @map("event_type") @db.VarChar(100)
+  actorId   String?  @map("actor_id") @db.Uuid
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_events")
+}
+
+// ------------------------------------------------------------------------------
+// 14. KNOWLEDGE DOCUMENTS
+// ------------------------------------------------------------------------------
+model KnowledgeDocument {
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  title          String                   @db.VarChar(255)
+  fileUrl        String                   @map("file_url")
+  fileType       String                   @map("file_type") @db.VarChar(50)
+  fileSize       Int                      @map("file_size")
+  status         DocumentProcessingStatus @default(PENDING)
+  totalChunks    Int                      @default(0) @map("total_chunks")
+  errorMessage   String?                  @map("error_message")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chunks       KnowledgeChunk[]
+
+  @@index([organizationId, status])
+  @@map("knowledge_documents")
+}
+
+// ------------------------------------------------------------------------------
+// 15. KNOWLEDGE CHUNKS (pgvector embeddings)
+// ------------------------------------------------------------------------------
+model KnowledgeChunk {
+  id         String                 @id @default(uuid()) @db.Uuid
+  documentId String                 @map("document_id") @db.Uuid
+  chunkIndex Int                    @map("chunk_index")
+  content    String
+  pageNumber Int?                   @map("page_number")
+  embedding  Unsupported("vector(1536)")?
+  metadata   Json                   @default("{}")
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("knowledge_chunks")
+}
+
+// ------------------------------------------------------------------------------
+// 16. AI CONVERSATIONS
+// ------------------------------------------------------------------------------
+model AiConversation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  title          String   @default("New Chat") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     AiMessage[]
+
+  @@index([organizationId, userId])
+  @@map("ai_conversations")
+}
+
+// ------------------------------------------------------------------------------
+// 17. AI MESSAGES
+// ------------------------------------------------------------------------------
+model AiMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           String   @db.VarChar(20) // user | assistant | system
+  content        String
+  citations      Json     @default("[]")
+  feedbackScore  Int?     @map("feedback_score") // 1 (thumbs up) or -1 (thumbs down)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+// ------------------------------------------------------------------------------
+// 18. AI ANALYSES (Ticket Classification & Sentiment)
+// ------------------------------------------------------------------------------
+model AiAnalysis {
+  id             String         @id @default(uuid()) @db.Uuid
+  ticketId       String         @map("ticket_id") @db.Uuid
+  category       String         @db.VarChar(100)
+  intent         String         @db.VarChar(255)
+  sentiment      SentimentScore
+  urgencyScore   Int            @map("urgency_score") // 1 - 10
+  keyEntities    Json           @default("[]") @map("key_entities")
+  summary        String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ai_analyses")
+}
+
+// ------------------------------------------------------------------------------
+// 19. AI SUGGESTIONS (Response Drafts & Action Recommendations)
+// ------------------------------------------------------------------------------
+model AiSuggestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  ticketId       String   @map("ticket_id") @db.Uuid
+  suggestedReply String   @map("suggested_reply")
+  actionType     String?  @map("action_type") @db.VarChar(100)
+  actionPayload  Json?    @map("action_payload")
+  confidence     Float    @default(0.0)
+  isAccepted     Boolean? @map("is_accepted")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  ticket           Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  approvalRequests ApprovalRequest[]
+
+  @@index([ticketId])
+  @@map("ai_suggestions")
+}
+
+// ------------------------------------------------------------------------------
+// 20. APPROVAL REQUESTS (Human-in-the-Loop)
+// ------------------------------------------------------------------------------
+model ApprovalRequest {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  suggestionId   String?        @map("suggestion_id") @db.Uuid
+  requestedById  String         @map("requested_by_id") @db.Uuid
+  reviewedById   String?        @map("reviewed_by_id") @db.Uuid
+  actionType     String         @map("action_type") @db.VarChar(100)
+  actionPayload  Json           @map("action_payload")
+  status         ApprovalStatus @default(PENDING)
+  reviewNotes    String?        @map("review_notes")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  reviewedAt     DateTime?      @map("reviewed_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  suggestion   AiSuggestion? @relation(fields: [suggestionId], references: [id], onDelete: SetNull)
+  requestedBy  User          @relation("RequesterApprovals", fields: [requestedById], references: [id], onDelete: Cascade)
+  reviewedBy   User?         @relation("ReviewerApprovals", fields: [reviewedById], references: [id], onDelete: SetNull)
+  execution    AiExecution?
+
+  @@index([organizationId, status])
+  @@index([requestedById])
+  @@map("approval_requests")
+}
+
+// ------------------------------------------------------------------------------
+// 21. AI EXECUTIONS (Audited Tool Run)
+// ------------------------------------------------------------------------------
+model AiExecution {
+  id                String   @id @default(uuid()) @db.Uuid
+  approvalRequestId String   @unique @map("approval_request_id") @db.Uuid
+  executedById      String   @map("executed_by_id") @db.Uuid
+  isSuccess         Boolean  @map("is_success")
+  executionResult   Json     @default("{}") @map("execution_result")
+  errorMessage      String?  @map("error_message")
+  executedAt        DateTime @default(now()) @map("executed_at")
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  executedBy      User            @relation(fields: [executedById], references: [id], onDelete: Cascade)
+
+  @@index([approvalRequestId])
+  @@map("ai_executions")
+}
+
+// ------------------------------------------------------------------------------
+// 22. NOTIFICATIONS
+// ------------------------------------------------------------------------------
+model Notification {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  type           NotificationType
+  title          String           @db.VarChar(255)
+  message        String
+  metadata       Json             @default("{}")
+  isRead         Boolean          @default(false) @map("is_read")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, isRead])
+  @@map("notifications")
+}
+
+// ------------------------------------------------------------------------------
+// 23. INTEGRATIONS
+// ------------------------------------------------------------------------------
+model Integration {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  provider       String   @db.VarChar(100) // slack, email, crm, etc.
+  config         Json     @default("{}")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@map("integrations")
+}
+
+// ------------------------------------------------------------------------------
+// 24. AI USAGE LOGS (Token & Cost Tracking)
+// ------------------------------------------------------------------------------
+model AiUsageLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  feature          String   @db.VarChar(100) // RAG, TICKET_REPLY, CLASSIFICATION
+  model            String   @db.VarChar(100)
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  totalTokens      Int      @default(0) @map("total_tokens")
+  estimatedCostUsd Float    @default(0.0) @map("estimated_cost_usd")
+  latencyMs        Int      @default(0) @map("latency_ms")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, feature])
+  @@index([createdAt])
+  @@map("ai_usage_logs")
+}
+
+// ------------------------------------------------------------------------------
+// 25. AUDIT LOGS (Compliance & Security)
+// ------------------------------------------------------------------------------
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  action         String   @db.VarChar(100)
+  resource       String   @db.VarChar(100)
+  resourceId     String?  @map("resource_id") @db.VarChar(100)
+  payload        Json     @default("{}")
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+  userAgent      String?  @map("user_agent")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

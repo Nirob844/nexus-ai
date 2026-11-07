@@ -1,0 +1,142 @@
+# NEXUS AI - Implementation Roadmap & Phases
+
+This document outlines the step-by-step engineering roadmap for building **NEXUS AI**, a multi-tenant AI-powered business operations and customer support SaaS.
+
+---
+
+## 🗺️ Roadmap Overview
+
+| Phase | Module / Focus | Primary Stack | Status |
+| :--- | :--- | :--- | :--- |
+| **Phase 1** | Project Scaffolding & Infrastructure | Monorepo, Docker Compose, Postgres, Redis | ✅ Completed |
+| **Phase 2** | Database Schema & Multi-Tenancy Design | PostgreSQL, pgvector, Prisma ORM | ✅ Completed |
+| **Phase 3** | Core Backend, Authentication & RBAC | NestJS, JWT, Argon2, RBAC Guards | ⏳ Next Up |
+| **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ⏳ Pending |
+| **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/LlamaIndex | ⏳ Pending |
+| **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM (OpenAI/Anthropic/Gemini) | ⏳ Pending |
+| **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ⏳ Pending |
+| **Phase 8** | Real-Time Communication & Notifications | Socket.IO / WebSockets, Email Queue | ⏳ Pending |
+| **Phase 9** | AI Monitoring, Observability & Analytics | Metrics Aggregator, Token Counter, Dashboard APIs | ⏳ Pending |
+| **Phase 10** | Frontend Web Application | Next.js, React, Tailwind CSS, Shadcn UI | ⏳ Pending |
+
+---
+
+## 📋 Detailed Phase Breakdown
+
+### Phase 1: Project Scaffolding & Infrastructure
+**Goal:** Establish the monorepo directory layout, containerized local services, environment configurations, and version control.
+- [x] Initialize Git repository (`.gitignore`, branch rules).
+- [x] Create monorepo structure:
+  - `apps/api` (NestJS main backend)
+  - `apps/ai-service` (Python FastAPI service)
+  - `apps/web` (Next.js frontend portal)
+  - `packages/` (shared types, configs)
+- [x] Configure `docker-compose.yml`:
+  - PostgreSQL with `pgvector` extension enabled
+  - Redis (for caching, BullMQ, and pub/sub)
+- [x] Set up environment variable templates (`.env.example` and local `.env`).
+- [x] Verify local database and Redis connection health.
+
+---
+
+### Phase 2: Database Schema & Multi-Tenancy Architecture
+**Goal:** Model all 25 core entities in Prisma ORM with strict multi-tenant isolation and vector support.
+- [x] Initialize Prisma in `apps/api`.
+- [x] Define multi-tenant schema covering 25 entities:
+  - **Tenancy & IAM:** `organizations`, `users`, `organization_members`, `roles`, `permissions`, `role_permissions`, `refresh_tokens`.
+  - **Support:** `customers`, `tickets`, `ticket_messages`, `ticket_attachments`, `ticket_assignments`, `ticket_events`.
+  - **Knowledge & Vector:** `knowledge_documents`, `knowledge_chunks` (with `pgvector` embedding column).
+  - **AI & Automation:** `ai_conversations`, `ai_messages`, `ai_analyses`, `ai_suggestions`, `approval_requests`, `ai_executions`.
+  - **System & Auditing:** `notifications`, `integrations`, `ai_usage_logs`, `audit_logs`.
+- [x] Configure PostgreSQL indexes (tenant-scoped indexes, vector indexes `HNSW`).
+- [x] Build database seed script (default roles, system permissions, demo tenant, super admin).
+- [x] Execute initial database migration & synchronization.
+
+---
+
+### Phase 3: Core Backend, Authentication & RBAC
+**Goal:** Build secure multi-tenant authentication, authorization, and tenant context resolution in NestJS.
+- [ ] NestJS modular architecture setup (Common, Config, Database, Auth, Tenants, Users).
+- [ ] User registration, login, email verification, and password reset flows.
+- [ ] JWT authentication strategy (short-lived access tokens, rotatable refresh tokens).
+- [ ] Tenant resolution middleware/guard (extracting tenant from subdomain or header `X-Tenant-ID`).
+- [ ] Role-Based Access Control (RBAC) decorators & guards (`@Roles()`, `@Permissions()`).
+- [ ] Organization creation and employee invitation/membership workflows.
+- [ ] OpenAPI / Swagger documentation integration.
+
+---
+
+### Phase 4: Customer Support Ticketing Engine
+**Goal:** Implement end-to-end support ticket lifecycle and asynchronous job queuing.
+- [ ] Customer ticket creation API (subject, description, category, priority, attachments).
+- [ ] Agent ticket workbench APIs (assign, reassign, status transitions, internal notes).
+- [ ] Ticket event logging & audit history.
+- [ ] BullMQ setup with Redis for asynchronous background processing.
+- [ ] Ticket state machine: `Open` -> `AI Processing` -> `In Progress` -> `Pending Customer` -> `Resolved` -> `Closed` -> `Reopened`.
+
+---
+
+### Phase 5: Knowledge Base & RAG Pipeline (FastAPI AI Service)
+**Goal:** Build a high-performance Python AI microservice for document ingestion, vector storage, and RAG Q&A.
+- [ ] FastAPI microservice structure with configuration and health checks.
+- [ ] Document parser pipeline supporting PDF, DOCX, TXT, and Markdown.
+- [ ] Text chunking and metadata enrichment strategy.
+- [ ] Embedding generation integration (e.g., text-embedding-3 or local embeddings).
+- [ ] Vector similarity search querying PostgreSQL `pgvector`.
+- [ ] RAG endpoint for employee knowledge assistant with precise source citations (file, page, section).
+- [ ] Conversation memory for follow-up questions.
+
+---
+
+### Phase 6: AI Support Agent & Background Processing
+**Goal:** Integrate AI intelligence into ticket intake and support operations.
+- [ ] BullMQ ticket processor communicating with FastAPI AI service:
+  1. **Ticket Classification:** Auto-detect category, priority, and intent.
+  2. **Sentiment Analysis:** Detect customer dissatisfaction and escalation triggers.
+  3. **Context Retrieval:** Fetch customer history and previous interactions.
+  4. **AI Reply Draft Generation:** Generate accurate, grounded suggested responses.
+- [ ] Store AI suggestions and analysis in database for agent review.
+- [ ] Ticket summarization and shift handover generation.
+
+---
+
+### Phase 7: Human-in-the-Loop AI Approvals & Execution
+**Goal:** Ensure safe, authorized, and audited execution of AI recommendations.
+- [ ] Approval request model and state engine (`Pending`, `Approved`, `Rejected`, `Executed`, `Failed`).
+- [ ] Support agent / Admin review interface endpoints.
+- [ ] Backend validation checks (tenant bounds, role authorization, business limits).
+- [ ] Idempotent execution handler for approved actions.
+- [ ] Complete audit log recording who approved, what was executed, and system results.
+
+---
+
+### Phase 8: Real-Time Communication & Notifications
+**Goal:** Provide real-time UI synchronization and user notification delivery.
+- [ ] NestJS WebSocket / Socket.IO gateway with tenant room isolation.
+- [ ] Real-time events for ticket updates, new messages, and approval requests.
+- [ ] In-app notification delivery system.
+- [ ] Background worker for transactional email notifications.
+
+---
+
+### Phase 9: AI Monitoring, Observability & Analytics
+**Goal:** Track AI operational metrics, cost efficiency, and business performance.
+- [ ] AI Usage Logger (prompt tokens, completion tokens, latency, cost estimation, model tracking).
+- [ ] AI observability (tracking failed requests, retries, and agent feedback).
+- [ ] Business Analytics Aggregations:
+  - Ticket metrics (volume, open vs resolved, response and resolution times).
+  - Agent performance metrics.
+  - Category and sentiment trends.
+- [ ] AI-assisted report generation based on verified system statistics.
+
+---
+
+### Phase 10: Frontend Web Application
+**Goal:** Build a responsive, role-based Next.js portal for customers, agents, and administrators.
+- [ ] Next.js (App Router), Tailwind CSS, and component library setup.
+- [ ] Multi-tenant auth handling (storing tokens, auto-refresh, role-based routing).
+- [ ] **Customer Portal:** Ticket submission, live thread view, attachment viewer.
+- [ ] **Agent Workspace:** Ticket triage queue, split-screen ticket detail, AI suggestions panel, internal notes.
+- [ ] **Knowledge Base UI:** Document upload with progress tracking, search & Q&A chat.
+- [ ] **Approval Center:** Review and execute pending AI actions with diffs.
+- [ ] **Analytics Dashboard:** Visual charts, metrics cards, and report exports.

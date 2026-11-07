@@ -1,0 +1,26 @@
+{
+  "name": "nexus-ai",
+  "version": "1.0.0",
+  "description": "NEXUS AI - Multi-Tenant AI-Powered Business Operations & Customer Support SaaS",
+  "private": true,
+  "scripts": {
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:restart": "docker compose restart",
+    "docker:clean": "docker compose down -v",
+    "db:wait": "docker compose exec -T postgres pg_isready -U postgres -d nexus_ai",
+    "redis:ping": "docker compose exec -T redis redis-cli ping"
+  },
+  "keywords": [
+    "saas",
+    "multi-tenant",
+    "nestjs",
+    "fastapi",
+    "rag",
+    "ai-agent",
+    "pgvector"
+  ],
+  "author": "NEXUS AI Team",
+  "license": "UNLICENSED"
+}
