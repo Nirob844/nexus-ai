@@ -1,8 +1,10 @@
 import re
+import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from app.services.rag_engine import rag_engine
+from app.core.config import settings
 
 router = APIRouter(prefix="/api/v1/ai", tags=["Ticket AI Intelligence"])
 
@@ -242,6 +244,37 @@ async def generate_analytics_summary(req: AnalyticsSummaryRequest):
         f"AI intelligence features consumed {req.total_ai_tokens:,} tokens (~${req.total_ai_cost_usd:.4f}) in automated triage, "
         f"classification, and RAG knowledge retrieval."
     )
+
+    if settings.GEMINI_API_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+            prompt = (
+                f"You are an executive operations analyst for an AI-powered SaaS company. Summarize this performance metrics report for {req.organization_name} over {req.time_range}:\n"
+                f"- Total tickets: {req.total_tickets}\n"
+                f"- Open tickets: {req.open_tickets}\n"
+                f"- Resolved: {req.resolved_tickets} ({req.resolution_rate:.1f}% resolution rate)\n"
+                f"- Urgent tickets: {req.urgent_tickets}\n"
+                f"- Mean resolution SLA: {req.avg_resolution_hours:.1f} hours\n"
+                f"- Frustrated customers: {req.frustrated_sentiment_count}\n"
+                f"- Top Category: {req.top_category}\n\n"
+                f"Write a concise executive summary paragraph (under 75 words) evaluating operational health and workload."
+            )
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.3},
+                    },
+                )
+                if resp.is_success:
+                    data = resp.json()
+                    gemini_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    if gemini_text:
+                        summary = gemini_text.strip()
+        except Exception:
+            pass
 
     insights = [
         f"Ticket Volume & Resolution: {req.resolved_tickets} of {req.total_tickets} tickets resolved ({req.resolution_rate:.1f}% resolution rate).",

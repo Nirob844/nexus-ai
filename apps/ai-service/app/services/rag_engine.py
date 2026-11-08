@@ -98,7 +98,19 @@ class RagEngine:
 
         full_context = "\n\n---\n\n".join(context_parts)
 
-        # Generate answer using LLM or local grounded extractor
+        # Generate answer using Gemini, OpenAI, or local grounded extractor
+        if settings.GEMINI_API_KEY:
+            try:
+                answer = await self._generate_gemini_answer(question, full_context, conversation_history)
+                return {
+                    "answer": answer,
+                    "citations": citations,
+                    "context_used": len(chunks),
+                    "model": settings.GEMINI_MODEL,
+                }
+            except Exception as e:
+                logger.warning(f"Gemini API call failed, falling back: {e}")
+
         if settings.OPENAI_API_KEY:
             try:
                 answer = await self._generate_openai_answer(question, full_context, conversation_history)
@@ -106,6 +118,7 @@ class RagEngine:
                     "answer": answer,
                     "citations": citations,
                     "context_used": len(chunks),
+                    "model": "gpt-4o-mini",
                 }
             except Exception as e:
                 logger.warning(f"OpenAI API call failed, falling back to grounded extractor: {e}")
@@ -116,7 +129,41 @@ class RagEngine:
             "answer": answer,
             "citations": citations,
             "context_used": len(chunks),
+            "model": "deterministic-grounded-v1",
         }
+
+    async def _generate_gemini_answer(
+        self,
+        question: str,
+        context: str,
+        history: Optional[List[Dict[str, str]]],
+    ) -> str:
+        prompt = (
+            "You are NEXUS AI, an expert internal knowledge assistant for company employees and support teams. "
+            "Answer the question accurately, professionally, and strictly using ONLY the provided context excerpts below. "
+            "Always mention document references and page numbers when available. "
+            "If the answer cannot be determined from the context, state that clearly.\n\n"
+            f"--- Context Excerpts ---\n{context}\n\n"
+            f"--- User Question ---\n{question}\n\n"
+            "--- Grounded Answer ---"
+        )
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "maxOutputTokens": 800,
+                    },
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"]
 
     async def _generate_openai_answer(
         self,
