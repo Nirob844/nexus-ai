@@ -1,0 +1,17 @@
+ACME CLOUD INFRASTRUCTURE & INCIDENT MANAGEMENT RUNBOOK
+
+1. INCIDENT SEVERITY CLASSIFICATION & SLA RESPONSE TARGETS
+Engineering and technical support classify production events into four standard tiers:
+• P1 (Critical - System Outage): Core SaaS platform unreachable or major data integrity failure. Response SLA: 15 minutes. Updates provided every 30 minutes. Lead: Incident Commander on-call.
+• P2 (Major - Degraded Functionality): Primary features (such as AI background processing or WebSockets) impaired, but core app operational. Response SLA: 1 hour. Updates provided every 2 hours.
+• P3 (Moderate - Minor Impairment): Non-critical bugs, cosmetic UI anomalies, or individual slow queries. Response SLA: 8 business hours.
+• P4 (Low - Feature Inquiries): General technical questions or configuration guidance. Response SLA: 24 business hours.
+
+2. SCHEDULED MAINTENANCE WINDOWS & BACKUPS
+• Standard Maintenance Window: Weekly routine infrastructure maintenance is strictly scheduled on Sundays between 02:00 UTC and 04:00 UTC. Customers are notified at least 72 hours in advance via dashboard banner.
+• Automated Database Backups: PostgreSQL point-in-time snapshots are taken hourly and stored across two geographically distinct cloud regions with 256-bit AES encryption. Hourly snapshots are retained for 30 days; daily rollups are archived for 1 year.
+
+3. API RATE LIMITS & SECURITY COMPLIANCE
+• Standard Tier API Limit: 1,000 requests per minute per tenant API key. Exceeding this triggers HTTP 429 (Too Many Requests) with a Retry-After header.
+• Enterprise Tier API Limit: 5,000 requests per minute with dedicated bursting pool up to 10,000 req/min.
+• Multi-Factor Authentication (MFA): MFA is mandatory for all user accounts assigned ORG_OWNER or ORG_ADMIN roles. Single Sign-On (SSO) via SAML 2.0 / Okta is supported on Enterprise tiers.

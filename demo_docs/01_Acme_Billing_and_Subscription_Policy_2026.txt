@@ -1,0 +1,20 @@
+ACME CORPORATION
+BILLING, INVOICING & SUBSCRIPTION POLICY — FISCAL YEAR 2026
+
+1. SUBSCRIPTION TIERS & PRICING
+Acme Cloud SaaS operates under three primary customer service tiers:
+• Starter Plan ($49/month or $470/year): Up to 5 team members, standard ticketing, email support.
+• Professional Plan ($199/month or $1,900/year): Up to 25 team members, AI auto-classification, priority queue routing, 99.9% uptime SLA.
+• Enterprise Plan ($799/month or $7,670/year): Unlimited team members, custom RAG knowledge base integration, dedicated customer success manager, 99.99% uptime guarantee, 24/7 emergency hotline.
+Annual subscriptions include a 20% upfront discount compared to month-to-month billing.
+
+2. CANCELLATION & 14-DAY REFUND POLICY
+• 14-Day Money-Back Guarantee: New subscribers may cancel their subscription within fourteen (14) calendar days of initial account creation for a full 100% refund without penalty.
+• Mid-Cycle Cancellations: Cancellations initiated after the initial 14-day window will remain active through the end of the current paid billing cycle. No prorated cash refunds are granted for partial months, but accounts retain full system access until the period ends.
+• Service Credit Exceptions: In cases where documented service downtime exceeds our committed SLA (>0.1% downtime in a billing month), customers are eligible for a 15% SLA billing credit applied to their subsequent invoice.
+
+3. INVOICE DISPUTES & PAYMENT GRACE PERIOD
+• Invoices are automatically issued on the first day of each billing cycle to the billing email on file.
+• Grace Period: If an automated credit card charge fails, Acme provides a seven (7) day payment grace period during which three retry attempts are executed.
+• Account Suspension: If an invoice remains unsettled after the 7-day grace window, account access will be temporarily locked to read-only status. Data is preserved for sixty (60) days prior to deletion.
+• Dispute Filing: All invoice discrepancies or billing queries must be formally submitted via support ticket within thirty (30) days of invoice generation.

@@ -11,7 +11,7 @@ from app.services.embeddings import embedding_service
 router = APIRouter(prefix="/api/v1/documents", tags=["Document Ingestion"])
 
 class ProcessTextDocumentRequest(BaseModel):
-    document_id: str
+    document_id: Optional[str] = None
     organization_id: str
     title: str
     content: str
@@ -29,16 +29,34 @@ async def process_text_document(req: ProcessTextDocumentRequest):
     if not chunks:
         raise HTTPException(status_code=400, detail="Document content is empty or contains no parseable text.")
 
+    doc_id = req.document_id or str(uuid.uuid4())
     conn = await db_pool.get_connection()
     try:
         # Generate embeddings in batch
         texts = [c["content"] for c in chunks]
         embeddings = await embedding_service.get_embeddings(texts)
 
+        # Ensure document row exists in knowledge_documents
+        file_url = f"local://documents/{doc_id}.{req.file_type}"
+        await conn.execute(
+            """
+            INSERT INTO knowledge_documents (id, organization_id, title, file_url, file_type, file_size, status, total_chunks, created_at, updated_at)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, 'PROCESSING', $7, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, status = 'PROCESSING', total_chunks = EXCLUDED.total_chunks, updated_at = NOW();
+            """,
+            doc_id,
+            req.organization_id,
+            req.title,
+            file_url,
+            req.file_type,
+            len(req.content.encode("utf-8")),
+            len(chunks),
+        )
+
         # Batch insert into knowledge_chunks
         async with conn.transaction():
             # Delete any previous chunks for this document
-            await conn.execute("DELETE FROM knowledge_chunks WHERE document_id = $1::uuid;", req.document_id)
+            await conn.execute("DELETE FROM knowledge_chunks WHERE document_id = $1::uuid;", doc_id)
 
             for c, emb in zip(chunks, embeddings):
                 chunk_id = str(uuid.uuid4())
@@ -48,7 +66,7 @@ async def process_text_document(req: ProcessTextDocumentRequest):
                     VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::jsonb, NOW());
                     """,
                     chunk_id,
-                    req.document_id,
+                    doc_id,
                     c["chunk_index"],
                     c["content"],
                     c["page_number"],
@@ -64,12 +82,12 @@ async def process_text_document(req: ProcessTextDocumentRequest):
                 WHERE id = $2::uuid;
                 """,
                 len(chunks),
-                req.document_id,
+                doc_id,
             )
 
         return {
             "success": True,
-            "document_id": req.document_id,
+            "document_id": doc_id,
             "total_chunks": len(chunks),
             "status": "COMPLETED",
         }
@@ -82,7 +100,7 @@ async def process_text_document(req: ProcessTextDocumentRequest):
             WHERE id = $2::uuid;
             """,
             str(e),
-            req.document_id,
+            doc_id,
         )
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
     finally:
@@ -90,8 +108,9 @@ async def process_text_document(req: ProcessTextDocumentRequest):
 
 @router.post("/process-file")
 async def process_file_upload(
-    document_id: str = Form(...),
     organization_id: str = Form(...),
+    document_id: Optional[str] = Form(None),
+    title: Optional[str] = Form(None),
     file: UploadFile = File(...),
 ):
     """
@@ -99,6 +118,8 @@ async def process_file_upload(
     """
     content_bytes = await file.read()
     file_type = file.filename.split(".")[-1] if "." in file.filename else "txt"
+    doc_title = title or file.filename
+    doc_id = document_id or str(uuid.uuid4())
 
     try:
         pages = DocumentParser.parse(content_bytes, file_type)
@@ -116,8 +137,25 @@ async def process_file_upload(
         texts = [c["content"] for c in chunks]
         embeddings = await embedding_service.get_embeddings(texts)
 
+        # Ensure document row exists in knowledge_documents
+        file_url = f"local://documents/{file.filename}"
+        await conn.execute(
+            """
+            INSERT INTO knowledge_documents (id, organization_id, title, file_url, file_type, file_size, status, total_chunks, created_at, updated_at)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, 'PROCESSING', $7, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, status = 'PROCESSING', total_chunks = EXCLUDED.total_chunks, updated_at = NOW();
+            """,
+            doc_id,
+            organization_id,
+            doc_title,
+            file_url,
+            file_type,
+            len(content_bytes),
+            len(chunks),
+        )
+
         async with conn.transaction():
-            await conn.execute("DELETE FROM knowledge_chunks WHERE document_id = $1::uuid;", document_id)
+            await conn.execute("DELETE FROM knowledge_chunks WHERE document_id = $1::uuid;", doc_id)
 
             for c, emb in zip(chunks, embeddings):
                 chunk_id = str(uuid.uuid4())
@@ -127,7 +165,7 @@ async def process_file_upload(
                     VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::jsonb, NOW());
                     """,
                     chunk_id,
-                    document_id,
+                    doc_id,
                     c["chunk_index"],
                     c["content"],
                     c["page_number"],
@@ -142,12 +180,12 @@ async def process_file_upload(
                 WHERE id = $2::uuid;
                 """,
                 len(chunks),
-                document_id,
+                doc_id,
             )
 
         return {
             "success": True,
-            "document_id": document_id,
+            "document_id": doc_id,
             "total_chunks": len(chunks),
             "status": "COMPLETED",
         }
@@ -159,7 +197,7 @@ async def process_file_upload(
             WHERE id = $2::uuid;
             """,
             str(e),
-            document_id,
+            doc_id,
         )
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
     finally:
