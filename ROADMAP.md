@@ -135,10 +135,10 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 10: Frontend Web Application
 **Goal:** Build a responsive, role-based Next.js portal for customers, agents, and administrators.
-- [ ] Next.js (App Router), Tailwind CSS, and component library setup.
-- [ ] Multi-tenant auth handling (storing tokens, auto-refresh, role-based routing).
-- [ ] **Customer Portal:** Ticket submission, live thread view, attachment viewer.
-- [ ] **Agent Workspace:** Ticket triage queue, split-screen ticket detail, AI suggestions panel, internal notes.
-- [ ] **Knowledge Base UI:** Document upload with progress tracking, search & Q&A chat.
-- [ ] **Approval Center:** Review and execute pending AI actions with diffs.
-- [ ] **Analytics Dashboard:** Visual charts, metrics cards, and report exports.
+- [x] Next.js (App Router), Tailwind CSS, Lucide icons, and Socket.IO client setup.
+- [x] Multi-tenant auth handling (storing tokens, auto-refresh, role-based routing, organization switcher).
+- [x] **Customer Portal:** Ticket submission, live thread view, auto-queueing for AI analysis.
+- [x] **Agent Workspace:** Ticket triage queue, split-screen ticket detail, AI suggestions panel, internal notes, status/priority controls.
+- [x] **Knowledge Base UI:** Document ingestion directly into vector database, search & RAG Q&A chat with citations.
+- [x] **Approval Center:** Review and execute pending AI actions with diffs, approve/reject flows.
+- [x] **Analytics Dashboard:** Visual charts, metrics cards, sentiment distribution, AI token usage & cost telemetry, and AI executive summary.
