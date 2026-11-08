@@ -4,6 +4,8 @@
   "description": "NEXUS AI - Multi-Tenant AI-Powered Business Operations & Customer Support SaaS",
   "private": true,
   "scripts": {
+    "ai:dev": "apps/ai-service/.venv/bin/uvicorn app.main:app --app-dir apps/ai-service --host 0.0.0.0 --port 8000 --reload",
+    "ai:start": "apps/ai-service/.venv/bin/uvicorn app.main:app --app-dir apps/ai-service --host 0.0.0.0 --port 8000",
     "api:build": "yarn --cwd apps/api build",
     "api:dev": "yarn --cwd apps/api start:dev",
     "api:start": "yarn --cwd apps/api start:prod",

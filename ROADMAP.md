@@ -12,8 +12,8 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 | **Phase 2** | Database Schema & Multi-Tenancy Design | PostgreSQL, pgvector, Prisma ORM | ✅ Completed |
 | **Phase 3** | Core Backend, Authentication & RBAC | NestJS, JWT, Argon2, RBAC Guards | ✅ Completed |
 | **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ✅ Completed |
-| **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/LlamaIndex | ⏳ Next Up |
-| **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM (OpenAI/Anthropic/Gemini) | ⏳ Pending |
+| **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/RAG | ✅ Completed |
+| **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM Integration | ⏳ Next Up |
 | **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ⏳ Pending |
 | **Phase 8** | Real-Time Communication & Notifications | Socket.IO / WebSockets, Email Queue | ⏳ Pending |
 | **Phase 9** | AI Monitoring, Observability & Analytics | Metrics Aggregator, Token Counter, Dashboard APIs | ⏳ Pending |
@@ -78,13 +78,13 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 5: Knowledge Base & RAG Pipeline (FastAPI AI Service)
 **Goal:** Build a high-performance Python AI microservice for document ingestion, vector storage, and RAG Q&A.
-- [ ] FastAPI microservice structure with configuration and health checks.
-- [ ] Document parser pipeline supporting PDF, DOCX, TXT, and Markdown.
-- [ ] Text chunking and metadata enrichment strategy.
-- [ ] Embedding generation integration (e.g., text-embedding-3 or local embeddings).
-- [ ] Vector similarity search querying PostgreSQL `pgvector`.
-- [ ] RAG endpoint for employee knowledge assistant with precise source citations (file, page, section).
-- [ ] Conversation memory for follow-up questions.
+- [x] FastAPI microservice structure with configuration and health checks.
+- [x] Document parser pipeline supporting PDF, DOCX, TXT, and Markdown.
+- [x] Text chunking and metadata enrichment strategy (Recursive character chunker).
+- [x] Embedding generation integration (`vector(1536)`).
+- [x] Vector similarity search querying PostgreSQL `pgvector`.
+- [x] RAG endpoint for employee knowledge assistant with precise source citations (file, page, section).
+- [x] Conversation memory for follow-up questions.
 
 ---
 
