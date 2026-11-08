@@ -2,8 +2,9 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
+import { AiService } from '../ai/ai.service';
 import { TICKET_QUEUE_NAME } from '../queue/queue.module';
-import { SentimentScore, TicketStatus } from '@prisma/client';
+import { SentimentScore, TicketPriority, TicketStatus } from '@prisma/client';
 
 export interface TicketJobPayload {
   ticketId: string;
@@ -23,71 +24,105 @@ export interface TicketJobPayload {
 export class TicketProcessor extends WorkerHost {
   private readonly logger = new Logger(TicketProcessor.name);
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
+  ) {
     super();
   }
 
   async process(job: Job<TicketJobPayload, any, string>): Promise<any> {
-    const { ticketId, organizationId, subject, description } = job.data;
-    this.logger.log(`[BullMQ] Processing async AI analysis for ticket #${ticketId}`);
+    const { ticketId, organizationId, subject, description, customer } = job.data;
+    this.logger.log(`[BullMQ] Starting AI analysis pipeline for ticket #${ticketId}`);
 
     try {
-      // 1. Initial heuristic classification & sentiment detection
-      const isUrgent =
-        /urgent|critical|broken|cannot access|down|emergency/i.test(subject) ||
-        /urgent|critical|broken|down/i.test(description);
+      // 1. Call Python AI Microservice for Classification & Sentiment Analysis
+      const classification = await this.aiService.classifyTicket(
+        organizationId,
+        subject,
+        description,
+        customer.name,
+      );
 
-      const sentiment: SentimentScore = isUrgent
-        ? SentimentScore.FRUSTRATED
-        : SentimentScore.NEUTRAL;
+      // 2. Call Python AI Microservice for Knowledge-Grounded Suggestion Draft
+      const suggestion = await this.aiService.suggestReply(
+        organizationId,
+        subject,
+        description,
+        customer.name,
+      );
 
-      // 2. Persist AI Analysis
+      // 3. Persist AI Analysis record
       const analysis = await this.prisma.aiAnalysis.create({
         data: {
           ticketId,
-          category: job.data.category || 'General Support',
-          intent: 'Customer reporting service access issue after plan change',
-          sentiment,
-          urgencyScore: isUrgent ? 9 : 4,
-          keyEntities: ['Pro Plan', 'Dashboard Access'],
-          summary: `Customer is requesting support regarding: "${subject}". Priority flagged based on issue description.`,
+          category: classification.category,
+          intent: classification.intent,
+          sentiment: classification.sentiment as SentimentScore,
+          urgencyScore: classification.urgency_score,
+          keyEntities: classification.key_entities,
+          summary: classification.summary,
         },
       });
 
-      // 3. Persist Initial Suggested Response Draft
-      await this.prisma.aiSuggestion.create({
+      // 4. Persist AI Suggestion record
+      const savedSuggestion = await this.prisma.aiSuggestion.create({
         data: {
           ticketId,
-          suggestedReply: `Hello ${job.data.customer.name},\n\nThank you for reaching out to us. We have received your query regarding "${subject}". Our team is actively reviewing your account permissions and will update you shortly.\n\nBest regards,\nSupport Team`,
-          confidence: 0.88,
-          actionType: 'ACCOUNT_STATUS_CHECK',
-          actionPayload: { checkSubscription: true },
+          suggestedReply: suggestion.suggested_reply,
+          actionType: suggestion.action_type || null,
+          actionPayload: suggestion.action_payload || {},
+          confidence: suggestion.confidence,
         },
       });
 
-      // 4. Update ticket status from AI_PROCESSING to OPEN
+      // 5. Dynamic Priority Adjustment if urgency is critical (>= 8)
+      let adjustedPriority: TicketPriority | undefined = undefined;
+      if (classification.urgency_score >= 8) {
+        adjustedPriority = TicketPriority.URGENT;
+      }
+
+      // 6. Update ticket status from AI_PROCESSING to OPEN
       await this.prisma.ticket.update({
         where: { id: ticketId },
-        data: { status: TicketStatus.OPEN },
+        data: {
+          status: TicketStatus.OPEN,
+          category: classification.category,
+          ...(adjustedPriority ? { priority: adjustedPriority } : {}),
+        },
       });
 
-      // 5. Record lifecycle event
+      // 7. Record lifecycle event in audit trail
       await this.prisma.ticketEvent.create({
         data: {
           ticketId,
           eventType: 'AI_ANALYSIS_COMPLETED',
           metadata: {
             analysisId: analysis.id,
-            sentiment,
-            urgencyScore: analysis.urgencyScore,
+            suggestionId: savedSuggestion.id,
+            sentiment: classification.sentiment,
+            urgencyScore: classification.urgency_score,
+            adjustedPriority,
           },
         },
       });
 
-      this.logger.log(`[BullMQ] AI Analysis completed successfully for ticket #${ticketId}`);
-      return { success: true, ticketId, analysisId: analysis.id };
+      this.logger.log(
+        `[BullMQ] AI Analysis and Knowledge Grounding completed for ticket #${ticketId} (Category: ${classification.category}, Sentiment: ${classification.sentiment})`,
+      );
+      return {
+        success: true,
+        ticketId,
+        analysisId: analysis.id,
+        suggestionId: savedSuggestion.id,
+      };
     } catch (error) {
-      this.logger.error(`[BullMQ] Error processing ticket #${ticketId}: ${error.message}`, error.stack);
+      this.logger.error(`[BullMQ] Error in AI pipeline for ticket #${ticketId}: ${error.message}`, error.stack);
+      // Fallback: update status to OPEN so ticket is not stuck
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: TicketStatus.OPEN },
+      });
       throw error;
     }
   }

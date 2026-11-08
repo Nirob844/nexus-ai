@@ -8,6 +8,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
+import { AiService } from '../ai/ai.service';
 import { TICKET_QUEUE_NAME } from '../queue/queue.module';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateTicketMessageDto } from './dto/ticket-message.dto';
@@ -25,6 +26,7 @@ export class TicketsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
     @InjectQueue(TICKET_QUEUE_NAME) private readonly ticketQueue: Queue,
   ) {}
 
@@ -549,5 +551,50 @@ export class TicketsService {
     });
 
     return updated;
+  }
+
+  /**
+   * Summarize ticket thread and generate shift handover notes
+   */
+  async summarize(orgId: string, ticketId: string, actorId: string) {
+    const ticket = await this.prisma.ticket.findFirst({
+      where: { id: ticketId, organizationId: orgId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    if (!ticket) throw new NotFoundException('Ticket not found.');
+
+    const formattedMessages = ticket.messages.map((m) => ({
+      senderType: m.senderType,
+      senderName: m.user ? `${m.user.firstName} ${m.user.lastName}` : m.senderType,
+      content: m.content,
+    }));
+
+    const summaryResult = await this.aiService.summarizeTicket(
+      orgId,
+      ticketId,
+      ticket.subject,
+      formattedMessages,
+    );
+
+    await this.prisma.ticketEvent.create({
+      data: {
+        ticketId,
+        actorId,
+        eventType: 'TICKET_SUMMARIZED',
+        metadata: {
+          summary: summaryResult.summary,
+        },
+      },
+    });
+
+    return summaryResult;
   }
 }

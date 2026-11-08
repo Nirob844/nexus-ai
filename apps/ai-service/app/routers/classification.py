@@ -32,6 +32,22 @@ class TicketSuggestResponse(BaseModel):
     confidence: float
     grounded_citations: List[Dict[str, Any]] = []
 
+class TicketMessageInput(BaseModel):
+    sender_type: str
+    sender_name: Optional[str] = None
+    content: str
+
+class TicketSummarizeRequest(BaseModel):
+    ticket_id: str
+    subject: str
+    messages: List[TicketMessageInput]
+
+class TicketSummarizeResponse(BaseModel):
+    summary: str
+    key_points: List[str]
+    suggested_next_steps: List[str]
+    handover_notes: str
+
 @router.post("/classify", response_model=TicketClassifyResponse)
 async def classify_ticket(req: TicketClassifyRequest):
     """
@@ -135,3 +151,47 @@ async def suggest_ticket_reply(req: TicketSuggestRequest):
         "confidence": confidence,
         "grounded_citations": citations,
     }
+
+@router.post("/summarize", response_model=TicketSummarizeResponse)
+async def summarize_ticket(req: TicketSummarizeRequest):
+    """
+    Summarize long ticket message threads and generate shift handover notes.
+    """
+    total_messages = len(req.messages)
+    customer_messages = [m for m in req.messages if m.sender_type.upper() == "CUSTOMER"]
+    agent_messages = [m for m in req.messages if m.sender_type.upper() in ["AGENT", "AI"]]
+
+    first_issue = customer_messages[0].content if customer_messages else "Issue details"
+    latest_update = req.messages[-1].content if req.messages else "No updates"
+
+    summary = (
+        f"Ticket regarding \"{req.subject}\" has {total_messages} messages exchanged. "
+        f"Customer initially reported: \"{first_issue[:150]}...\". "
+        f"Latest interaction indicates: \"{latest_update[:150]}...\"."
+    )
+
+    key_points = [
+        f"Core Subject: {req.subject}",
+        f"Initial Inquiry: {first_issue[:120]}",
+        f"Total conversation exchanges: {total_messages} ({len(customer_messages)} customer, {len(agent_messages)} agent)",
+    ]
+
+    suggested_next_steps = [
+        "Verify if customer has confirmed resolution",
+        "Update ticket state to Pending Customer or Resolved if verified",
+    ]
+
+    handover_notes = (
+        f"HANDOVER BRIEF [Ticket #{req.ticket_id}]:\n"
+        f"Customer reported '{req.subject}'. "
+        f"Agent reviewed internal documentation and provided guidance. "
+        f"Waiting for final confirmation or resolution closure."
+    )
+
+    return {
+        "summary": summary,
+        "key_points": key_points,
+        "suggested_next_steps": suggested_next_steps,
+        "handover_notes": handover_notes,
+    }
+

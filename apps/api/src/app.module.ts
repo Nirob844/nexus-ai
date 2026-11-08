@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './database/prisma.module';
 import { QueueModule } from './queue/queue.module';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { UsersModule } from './users/users.module';
@@ -21,6 +22,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     }),
     PrismaModule,
     QueueModule,
+    AiModule,
     AuthModule,
     OrganizationsModule,
     UsersModule,

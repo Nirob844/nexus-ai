@@ -139,4 +139,17 @@ export class TicketsController {
   ) {
     return this.ticketsService.reopen(orgId, ticketId, actorId);
   }
+
+  @Post(':id/summarize')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRole.ORG_OWNER, SystemRole.ORG_ADMIN, SystemRole.SUPPORT_AGENT)
+  @ApiOperation({ summary: 'Summarize ticket conversation history and generate shift handover notes' })
+  @ApiResponse({ status: 200, description: 'AI Summary and Handover Notes generated' })
+  async summarize(
+    @CurrentTenant('id') orgId: string,
+    @Param('id') ticketId: string,
+    @CurrentUser('id') actorId: string,
+  ) {
+    return this.ticketsService.summarize(orgId, ticketId, actorId);
+  }
 }

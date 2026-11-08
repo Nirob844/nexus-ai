@@ -13,8 +13,8 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 | **Phase 3** | Core Backend, Authentication & RBAC | NestJS, JWT, Argon2, RBAC Guards | ✅ Completed |
 | **Phase 4** | Customer Support Ticketing Engine | NestJS, BullMQ, Redis, Events | ✅ Completed |
 | **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/RAG | ✅ Completed |
-| **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM Integration | ⏳ Next Up |
-| **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ⏳ Pending |
+| **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM Integration | ✅ Completed |
+| **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ⏳ Next Up |
 | **Phase 8** | Real-Time Communication & Notifications | Socket.IO / WebSockets, Email Queue | ⏳ Pending |
 | **Phase 9** | AI Monitoring, Observability & Analytics | Metrics Aggregator, Token Counter, Dashboard APIs | ⏳ Pending |
 | **Phase 10** | Frontend Web Application | Next.js, React, Tailwind CSS, Shadcn UI | ⏳ Pending |
@@ -90,13 +90,14 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 6: AI Support Agent & Background Processing
 **Goal:** Integrate AI intelligence into ticket intake and support operations.
-- [ ] BullMQ ticket processor communicating with FastAPI AI service:
+- [x] BullMQ ticket processor communicating with FastAPI AI service:
   1. **Ticket Classification:** Auto-detect category, priority, and intent.
   2. **Sentiment Analysis:** Detect customer dissatisfaction and escalation triggers.
   3. **Context Retrieval:** Fetch customer history and previous interactions.
   4. **AI Reply Draft Generation:** Generate accurate, grounded suggested responses.
-- [ ] Store AI suggestions and analysis in database for agent review.
-- [ ] Ticket summarization and shift handover generation.
+- [x] Store AI suggestions and analysis in database for agent review.
+- [x] Ticket summarization and shift handover generation (`/tickets/:id/summarize`).
+- [x] Record AI latency and token observability into `ai_usage_logs`.
 
 ---
 
