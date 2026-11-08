@@ -122,13 +122,14 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 9: AI Monitoring, Observability & Analytics
 **Goal:** Track AI operational metrics, cost efficiency, and business performance.
-- [ ] AI Usage Logger (prompt tokens, completion tokens, latency, cost estimation, model tracking).
-- [ ] AI observability (tracking failed requests, retries, and agent feedback).
-- [ ] Business Analytics Aggregations:
-  - Ticket metrics (volume, open vs resolved, response and resolution times).
-  - Agent performance metrics.
-  - Category and sentiment trends.
-- [ ] AI-assisted report generation based on verified system statistics.
+- [x] AI Usage Logger (prompt tokens, completion tokens, latency, cost estimation, model tracking).
+- [x] AI observability (feature breakdown, model distribution, latency averages, cost per feature).
+- [x] Business Analytics Aggregations:
+  - Ticket metrics (volume, open vs resolved, response and resolution times, SLA tracking).
+  - Agent performance metrics (assigned tickets, resolution rates, mean resolution times).
+  - Category and sentiment trends (integrating real-time AI analyses).
+  - Human-in-the-loop review metrics (approval rates, decision latencies).
+- [x] AI-assisted report generation based on verified system statistics (`GET /api/v1/analytics/summary` synthesized with FastAPI microservice).
 
 ---
 

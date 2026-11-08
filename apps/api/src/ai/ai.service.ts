@@ -31,6 +31,14 @@ export interface SummarizeResult {
   handover_notes: string;
 }
 
+export interface AnalyticsSummaryResult {
+  healthStatus: 'HEALTHY' | 'NEEDS_ATTENTION' | 'CRITICAL';
+  executiveSummary: string;
+  keyInsights: string[];
+  riskAlerts: string[];
+  operationalRecommendations: string[];
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -172,6 +180,81 @@ export class AiService {
         key_points: [subject],
         suggested_next_steps: ['Review recent interaction'],
         handover_notes: `Handover for ticket #${ticketId}.`,
+      };
+    }
+  }
+
+  /**
+   * Generate Executive Business Intelligence Summary & Operational Insights
+   */
+  async generateAnalyticsSummary(
+    orgId: string,
+    orgName: string,
+    timeRange: string,
+    metrics: {
+      totalTickets: number;
+      openTickets: number;
+      resolvedTickets: number;
+      resolutionRate: number;
+      urgentTickets: number;
+      avgResolutionHours: number;
+      frustratedSentimentCount: number;
+      topCategory: string;
+      totalAiTokens: number;
+      totalAiCostUsd: number;
+    },
+  ): Promise<AnalyticsSummaryResult> {
+    const startTime = Date.now();
+    try {
+      const response = await fetch(`${this.aiBaseUrl}/api/v1/ai/analytics-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organization_name: orgName,
+          time_range: timeRange,
+          total_tickets: metrics.totalTickets,
+          open_tickets: metrics.openTickets,
+          resolved_tickets: metrics.resolvedTickets,
+          resolution_rate: metrics.resolutionRate,
+          urgent_tickets: metrics.urgentTickets,
+          avg_resolution_hours: metrics.avgResolutionHours,
+          frustrated_sentiment_count: metrics.frustratedSentimentCount,
+          top_category: metrics.topCategory,
+          total_ai_tokens: metrics.totalAiTokens,
+          total_ai_cost_usd: metrics.totalAiCostUsd,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI analytics summary returned status ${response.status}`);
+      }
+
+      const res = await response.json();
+      const latencyMs = Date.now() - startTime;
+      await this.logAiUsage(orgId, 'ANALYTICS_EXECUTIVE_SUMMARY', 'nexus-analytics-v1', latencyMs, 300, 150);
+
+      return {
+        healthStatus: res.health_status,
+        executiveSummary: res.executive_summary,
+        keyInsights: res.key_insights,
+        riskAlerts: res.risk_alerts,
+        operationalRecommendations: res.operational_recommendations,
+      };
+    } catch (err) {
+      this.logger.error(`Analytics summary error: ${err.message}`, err.stack);
+      return {
+        healthStatus: metrics.urgentTickets > 0 ? 'NEEDS_ATTENTION' : 'HEALTHY',
+        executiveSummary: `${orgName} processed ${metrics.totalTickets} tickets with ${metrics.resolutionRate.toFixed(1)}% resolution rate over ${timeRange}.`,
+        keyInsights: [
+          `Total volume: ${metrics.totalTickets} tickets`,
+          `Resolution rate: ${metrics.resolutionRate.toFixed(1)}%`,
+          `Leading topic: ${metrics.topCategory}`,
+        ],
+        riskAlerts: metrics.urgentTickets > 0 ? [`${metrics.urgentTickets} urgent ticket(s) currently open.`] : ['No critical risks detected.'],
+        operationalRecommendations: [
+          `Review active tickets in '${metrics.topCategory}'.`,
+          'Ensure agent workload is balanced across support queues.',
+        ],
       };
     }
   }

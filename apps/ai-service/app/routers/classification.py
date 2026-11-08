@@ -195,3 +195,83 @@ async def summarize_ticket(req: TicketSummarizeRequest):
         "handover_notes": handover_notes,
     }
 
+class AnalyticsSummaryRequest(BaseModel):
+    organization_name: Optional[str] = "Organization"
+    time_range: str = "30d"
+    total_tickets: int = 0
+    open_tickets: int = 0
+    resolved_tickets: int = 0
+    resolution_rate: float = 0.0
+    urgent_tickets: int = 0
+    avg_resolution_hours: float = 0.0
+    frustrated_sentiment_count: int = 0
+    top_category: Optional[str] = "General Support"
+    total_ai_tokens: int = 0
+    total_ai_cost_usd: float = 0.0
+
+class AnalyticsSummaryResponse(BaseModel):
+    health_status: str
+    executive_summary: str
+    key_insights: List[str]
+    risk_alerts: List[str]
+    operational_recommendations: List[str]
+
+@router.post("/analytics-summary", response_model=AnalyticsSummaryResponse)
+async def generate_analytics_summary(req: AnalyticsSummaryRequest):
+    """
+    Generate an executive-level summary and business recommendations based on operational metrics.
+    """
+    # Evaluate operational health
+    if req.urgent_tickets >= 3 or req.resolution_rate < 40 or req.frustrated_sentiment_count >= 5:
+        health_status = "CRITICAL"
+    elif req.urgent_tickets > 0 or req.resolution_rate < 70 or req.frustrated_sentiment_count > 0:
+        health_status = "NEEDS_ATTENTION"
+    else:
+        health_status = "HEALTHY"
+
+    # Construct narrative summary
+    status_label = {
+        "HEALTHY": "operating stably with high resolution efficiency",
+        "NEEDS_ATTENTION": "experiencing minor operational bottlenecks that require triage attention",
+        "CRITICAL": "facing elevated ticket volume and urgent escalation pressure",
+    }[health_status]
+
+    summary = (
+        f"During the {req.time_range} evaluation period, {req.organization_name}'s support ecosystem is {status_label}. "
+        f"A total of {req.total_tickets} support tickets were recorded with a {req.resolution_rate:.1f}% resolution completion rate. "
+        f"AI intelligence features consumed {req.total_ai_tokens:,} tokens (~${req.total_ai_cost_usd:.4f}) in automated triage, "
+        f"classification, and RAG knowledge retrieval."
+    )
+
+    insights = [
+        f"Ticket Volume & Resolution: {req.resolved_tickets} of {req.total_tickets} tickets resolved ({req.resolution_rate:.1f}% resolution rate).",
+        f"Resolution Velocity: Mean time to ticket resolution is {req.avg_resolution_hours:.1f} hours across all resolved cases.",
+        f"Primary Contact Driver: '{req.top_category}' constitutes the largest category of customer support inquiries.",
+        f"AI Efficiency: Automated background processing handled inquiries with an estimated operational cost of ${req.total_ai_cost_usd:.4f}."
+    ]
+
+    alerts = []
+    if req.urgent_tickets > 0:
+        alerts.append(f"High-Priority Warning: {req.urgent_tickets} ticket(s) currently marked as URGENT requiring immediate response.")
+    if req.frustrated_sentiment_count > 0:
+        alerts.append(f"Customer Sentiment Alert: {req.frustrated_sentiment_count} ticket(s) flagged with FRUSTRATED customer sentiment.")
+    if req.open_tickets > 10 and req.resolution_rate < 60:
+        alerts.append(f"Backlog Accumulation: {req.open_tickets} tickets currently open with resolution rate below 60%.")
+    if not alerts:
+        alerts.append("No critical operational risks detected. All SLA targets and sentiment thresholds are within acceptable parameters.")
+
+    recommendations = [
+        f"Documentation Optimization: Expand internal knowledge base articles covering '{req.top_category}' to increase first-contact resolution via RAG.",
+        "Agent Workload Balancing: Review active ticket assignments to maintain balanced distribution across tier-1 and tier-2 support staff.",
+        "Proactive Outreach: Follow up on high-urgency and negative sentiment cases to ensure customer retention and satisfaction.",
+    ]
+
+    return {
+        "health_status": health_status,
+        "executive_summary": summary,
+        "key_insights": insights,
+        "risk_alerts": alerts,
+        "operational_recommendations": recommendations,
+    }
+
+
