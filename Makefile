@@ -1,4 +1,4 @@
-.PHONY: help setup dev up down logs api ai web build db-seed db-migrate db-wait kill-ports clean
+.PHONY: help setup dev up down logs api ai web build db-seed db-migrate db-wait db-reset kill-ports clean
 
 # Colors for terminal output
 CYAN   := $(shell which tput >/dev/null 2>&1 && tput -Txterm setaf 6 || echo "")
@@ -54,6 +54,13 @@ db-migrate: ## Push Prisma schema to PostgreSQL database
 
 db-seed: ## Seed database with demo tenants, users, permissions, and handbook
 	@yarn --cwd apps/api prisma db seed
+
+db-reset: ## Wipe all data, flush Redis, and re-seed clean permissions & accounts
+	@echo "${YELLOW}Wiping all application tables and flushing Redis...${RESET}"
+	@docker compose exec -T redis redis-cli flushall
+	@node -e "const { PrismaClient } = require('./apps/api/node_modules/@prisma/client'); const p = new PrismaClient(); async function r() { for (const t of ['audit_logs','ai_usage_logs','ai_executions','approval_requests','ai_suggestions','ai_analyses','ai_messages','ai_conversations','notifications','ticket_events','ticket_assignments','ticket_attachments','ticket_messages','tickets','customers','knowledge_chunks','knowledge_documents','refresh_tokens','organization_members','organizations','users']) { await p.\$$executeRawUnsafe('TRUNCATE TABLE \"' + t + '\" CASCADE;'); } console.log('Tables truncated.'); } r().finally(() => p.\$$disconnect());"
+	@yarn --cwd apps/api prisma db seed
+	@echo "${GREEN}✅ Database freshly reset and seeded!${RESET}"
 
 api: ## Run NestJS API server in dev mode (port 4000)
 	@yarn --cwd apps/api start:dev
