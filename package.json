@@ -4,6 +4,7 @@
   "description": "NEXUS AI - Multi-Tenant AI-Powered Business Operations & Customer Support SaaS",
   "private": true,
   "scripts": {
+    "dev": "concurrently --kill-others --names \"API,AI,WEB\" --prefix-colors \"blue.bold,green.bold,magenta.bold\" \"yarn api:dev\" \"yarn ai:dev\" \"yarn web:dev\"",
     "ai:dev": "apps/ai-service/.venv/bin/uvicorn app.main:app --app-dir apps/ai-service --host 0.0.0.0 --port 8000 --reload",
     "ai:start": "apps/ai-service/.venv/bin/uvicorn app.main:app --app-dir apps/ai-service --host 0.0.0.0 --port 8000",
     "api:build": "yarn --cwd apps/api build",
@@ -30,5 +31,8 @@
     "pgvector"
   ],
   "author": "NEXUS AI Team",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
 }

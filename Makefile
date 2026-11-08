@@ -1,4 +1,4 @@
-.PHONY: help setup up down logs api ai web build db-seed db-migrate db-wait clean
+.PHONY: help setup dev up down logs api ai web build db-seed db-migrate db-wait clean
 
 # Colors for terminal output
 CYAN   := $(shell which tput >/dev/null 2>&1 && tput -Txterm setaf 6 || echo "")
@@ -25,6 +25,10 @@ setup: ## Install dependencies for all apps (API, AI Service, Web)
 	@echo "${GREEN}Generating Prisma client...${RESET}"
 	@yarn --cwd apps/api prisma generate
 	@echo "${CYAN}✅ Monorepo setup complete!${RESET}"
+
+dev: up ## Start Docker and run all 3 services concurrently (NestJS API, FastAPI AI, Next.js Web)
+	@echo "${GREEN}🚀 Booting all 3 NEXUS AI services (API:4000, AI:8000, WEB:3000)...${RESET}"
+	@yarn dev
 
 up: ## Start Docker containers (PostgreSQL:5433, Redis:6380)
 	@docker compose up -d
