@@ -9,11 +9,14 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { TICKET_QUEUE_NAME } from '../queue/queue.module';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateTicketMessageDto } from './dto/ticket-message.dto';
 import { TicketQueryDto } from './dto/ticket-query.dto';
 import {
+  NotificationType,
   SystemRole,
   TicketMessageSenderType,
   TicketPriority,
@@ -27,6 +30,8 @@ export class TicketsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    private readonly eventsGateway: EventsGateway,
+    private readonly notificationsService: NotificationsService,
     @InjectQueue(TICKET_QUEUE_NAME) private readonly ticketQueue: Queue,
   ) {}
 
@@ -171,6 +176,9 @@ export class TicketsService {
     } catch (err) {
       this.logger.error(`Failed to enqueue ticket job in Redis: ${err.message}`, err.stack);
     }
+
+    // Real-time WebSocket emission
+    this.eventsGateway.emitTicketCreated(orgId, ticket);
 
     return ticket;
   }
@@ -384,6 +392,10 @@ export class TicketsService {
           : 'AGENT_REPLIED',
       },
     });
+
+    // Real-time WebSocket emission to all ticket subscribers
+    this.eventsGateway.emitNewMessage(ticketId, message);
+    this.eventsGateway.emitTicketUpdated(orgId, ticketId, { status: nextStatus, latestMessage: message });
 
     return message;
   }

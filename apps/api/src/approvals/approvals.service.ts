@@ -5,16 +5,22 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateApprovalDto } from './dto/create-approval.dto';
 import { ReviewApprovalDto, ApprovalDecision } from './dto/review-approval.dto';
 import { ApprovalQueryDto } from './dto/approval-query.dto';
-import { ApprovalStatus } from '@prisma/client';
+import { ApprovalStatus, NotificationType } from '@prisma/client';
 
 @Injectable()
 export class ApprovalsService {
   private readonly logger = new Logger(ApprovalsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventsGateway: EventsGateway,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   /**
    * Create a new approval request for a sensitive AI action
@@ -61,6 +67,31 @@ export class ApprovalsService {
         },
       },
     });
+
+    // Real-time WebSocket emission to organization room
+    this.eventsGateway.emitApprovalRequested(orgId, approval);
+
+    // Notify organization admins & owners
+    const admins = await this.prisma.organizationMember.findMany({
+      where: {
+        organizationId: orgId,
+        systemRole: { in: ['ORG_OWNER', 'ORG_ADMIN'] },
+        isActive: true,
+      },
+    });
+
+    for (const admin of admins) {
+      if (admin.userId !== userId) {
+        await this.notificationsService.createNotification(
+          orgId,
+          admin.userId,
+          NotificationType.APPROVAL_REQUESTED,
+          'New Action Approval Request',
+          `A new sensitive AI action '${dto.actionType}' requires review.`,
+          { approvalId: approval.id, actionType: dto.actionType },
+        );
+      }
+    }
 
     this.logger.log(`Created approval request #${approval.id} for action '${dto.actionType}'`);
     return approval;
@@ -194,6 +225,17 @@ export class ApprovalsService {
         },
       });
 
+      // WebSocket broadcast & in-app notification
+      this.eventsGateway.emitApprovalResolved(orgId, updated);
+      await this.notificationsService.createNotification(
+        orgId,
+        approval.requestedById,
+        NotificationType.APPROVAL_RESOLVED,
+        'Action Approval Rejected',
+        `Your approval request for '${approval.actionType}' was rejected: "${dto.reviewNotes || 'No notes provided'}"`,
+        { approvalId, status: 'REJECTED' },
+      );
+
       return {
         message: 'Approval request rejected successfully.',
         approval: updated,
@@ -261,6 +303,19 @@ export class ApprovalsService {
         execution,
       };
     });
+
+    // WebSocket broadcast & in-app notification
+    this.eventsGateway.emitApprovalResolved(orgId, result.approval);
+    await this.notificationsService.createNotification(
+      orgId,
+      approval.requestedById,
+      NotificationType.APPROVAL_RESOLVED,
+      executionSuccess ? 'Action Approved & Executed' : 'Action Approved but Failed',
+      executionSuccess
+        ? `Your request for '${approval.actionType}' was approved and executed.`
+        : `Your request for '${approval.actionType}' was approved but execution failed: ${errorMessage}`,
+      { approvalId, status: finalStatus, isSuccess: executionSuccess },
+    );
 
     this.logger.log(
       `Approval request #${approvalId} reviewed by ${reviewerId} -> Status: ${finalStatus}`,

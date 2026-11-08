@@ -15,8 +15,8 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 | **Phase 5** | Knowledge Base & RAG Pipeline | Python, FastAPI, pgvector, LangChain/RAG | ✅ Completed |
 | **Phase 6** | AI Support Agent & Background Processing | BullMQ, FastAPI, LLM Integration | ✅ Completed |
 | **Phase 7** | Human-in-the-Loop AI Approvals & Execution | NestJS, Audit Engine, Execution Sandbox | ✅ Completed |
-| **Phase 8** | Real-Time Communication & Notifications | Socket.IO / WebSockets, Email Queue | ⏳ Next Up |
-| **Phase 9** | AI Monitoring, Observability & Analytics | Metrics Aggregator, Token Counter, Dashboard APIs | ⏳ Pending |
+| **Phase 8** | Real-Time Communication & Notifications | Socket.IO / WebSockets, Notifications | ✅ Completed |
+| **Phase 9** | AI Monitoring, Observability & Analytics | Metrics Aggregator, Token Counter, Dashboard APIs | ⏳ Next Up |
 | **Phase 10** | Frontend Web Application | Next.js, React, Tailwind CSS, Shadcn UI | ⏳ Pending |
 
 ---
@@ -113,10 +113,10 @@ This document outlines the step-by-step engineering roadmap for building **NEXUS
 
 ### Phase 8: Real-Time Communication & Notifications
 **Goal:** Provide real-time UI synchronization and user notification delivery.
-- [ ] NestJS WebSocket / Socket.IO gateway with tenant room isolation.
-- [ ] Real-time events for ticket updates, new messages, and approval requests.
-- [ ] In-app notification delivery system.
-- [ ] Background worker for transactional email notifications.
+- [x] NestJS WebSocket / Socket.IO gateway with tenant room and ticket room isolation (`/events` namespace).
+- [x] Real-time events for ticket updates, new messages, typing indicator, and approval requests.
+- [x] In-app notification delivery system with unread count badge (`/notifications`).
+- [x] Background events linked to approvals, tickets, and user notifications.
 
 ---
 
